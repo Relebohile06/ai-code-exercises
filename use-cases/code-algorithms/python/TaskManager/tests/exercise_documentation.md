@@ -1,66 +1,127 @@
-Exercise Part 1: Understanding Project Structure
+## Task Manager — Final Submission
 
-### Misconceptions I Had
+### 1. Initial vs Final Understanding
 
-okay so at first i literally just saw a bunch of random python files and had no idea how they connected. i thought all the files ran together every single time you run the app — like one big thing. turns out that's wrong. some files like task_list_merge.py only get used when you actually need to merge lists. not every file runs every time.
+**where i started:**
 
-i also thought models.py was like... selecting which task is important? like clicking on something. but no — it's more like a template or blueprint that says "this is what a task looks like" before anything even happens.
+honestly when i first opened the project i just saw a bunch of random python files and had no idea how they connected. i thought all the files ran together every single time you run the app like one big thing. i also thought models.py was about selecting or clicking which task is more important — like a UI thing. i called the testing framework "flash" instead of unittest 😭 and i had no idea what the difference was between a built-in import and a custom import. i just thought all imports were files you had to create yourself.
 
-oh and i called the testing framework "flash"  it's actually unittest. completely different thing. flask is a web thing. unittest is for testing python code.
+**where i ended up:**
 
-i also didn't know the difference between built-in imports and custom imports. i thought ALL imports were files you had to create yourself. but stuff like argparse and datetime come FREE with python — you don't build them, they're just there.
+now i understand that each file has ONE specific job and they talk to each other through imports. the whole thing follows a layered pattern:
 
+```
+user types command
+        ↓
+cli.py reads it        ← the front door
+        ↓
+task_manager.py acts   ← the brain
+        ↓
+storage.py saves       ← the filing cabinet
+        ↓
+models.py defines      ← the blueprint
 
-### Entry Points
+helpers only when needed:
+task_parser.py    → translates text into tasks
+task_priority.py  → scores and ranks tasks
+task_list_merge.py → syncs two task lists
+```
 
-so there's two ways into this project:
+i also now understand that not every file runs every time. helper files only get called when a specific command needs them. skipping a file that IS needed breaks everything — but not every file is needed every time.
 
-- **for a normal user:** you type `python cli.py create "your task"` in the terminal. that's where everything starts
-- **for a developer:** you run `python -m unittest discover tests` and python goes and finds all the test files automatically and checks if everything is working
+---
 
+### 2. Most Valuable Insights From Each Prompt
 
-### Architectural Pattern
+**Exercise 1 — Understanding Project Structure:**
 
-the files follow a layered pattern — meaning each file has ONE job and they don't do each other's work. they talk to each other using imports. like cli.py calls task_manager.py, task_manager.py calls models.py and storage.py and so on.
+the most valuable thing i learned here was the difference between built-in imports and custom imports. i used to think all imports were files you created yourself. now i know that things like `argparse` and `datetime` come FREE with python — they're already there when you install it. custom imports like `from models import Task` are files YOUR project created.
 
-the way i think about it now is like a restaurant:
+the second most valuable thing was understanding what models.py actually does. i thought it was about selecting priority — but it's actually a blueprint. it defines what a task IS before anything else happens.
 
-- you (the user) talk to the waiter (cli.py)
-- the waiter tells the head chef (task_manager.py) what you want
-- the head chef uses recipes (models.py) to know what a task looks like
-- then the filing cabinet (storage.py) saves everything
-- and the specialist helpers (parser, priority, merge) only come in when specifically needed
+**Exercise 2 — Finding Feature Implementation:**
 
-you can't skip any file that's needed for your specific command — if one is missing the whole thing breaks
+the most valuable thing here was understanding the difference between a `.py` file and a `.csv` file. i thought task_export.csv was the file i needed to create. now i know:
 
+- `task_export.py` = the tool/machine you build once
+- `my_tasks.csv` = the result that gets automatically generated when a user runs the command
 
-### Key Components and Their Responsibilities
+i also learned that when adding a new feature you don't always build from scratch. you read existing files like `storage.py` to understand the pattern and then copy that pattern for your new feature.
 
-- **cli.py** — the front door. reads what you type in the terminal and passes it along. doesn't do the actual work itself
-- **task_manager.py** — the brain. coordinates everything. creating, updating, deleting tasks all goes through here
-- **models.py** — the blueprint. defines what a task actually IS — what fields it has, what priority levels exist, what statuses are allowed
-- **storage.py** — the filing cabinet. saves tasks to tasks.json and loads them back when you open the app again
-- **task_parser.py** — the translator. turns plain text like "Buy milk @shopping !high #tomorrow" into an actual task with proper fields
-- **task_priority.py** — the ranker. gives each task a score based on priority, due date and status — then sorts them most important first
-- **task_list_merge.py** — the syncer. combines two separate task lists without losing data or creating duplicates. only runs when you actually need to merge
+**Exercise 3 — Domain Model:**
 
+the most valuable thing here was understanding the scoring system and how business rules hide inside code. those `if` statements in `task_priority.py` aren't just random conditions — they're actual business decisions someone made. like:
 
-### What I Now Understand About Imports
+```
+overdue → +35 points  (missing deadlines is serious)
+DONE    → -50 points  (finished tasks need no attention)
+```
 
-so imports are basically files talking to each other. but there's two types:
+i also finally understood the difference between TaskStatus and TaskPriority properly:
 
-**built-in imports** — these come with python when you install it. you don't create them, they're just there waiting. things like argparse and datetime. free tools in the python toolbox.
+- TaskStatus = where is the task RIGHT NOW in its journey
+- TaskPriority = how important is this task compared to others
 
-**custom imports** — these are files YOUR project created. like when task_manager.py says `from models import Task` it's literally going to find models.py in your project folder and grabbing what it needs from there.
+---
 
-the whole project is connected through imports. that's how separate files work as one system. they don't magically know about each other — they have to specifically import what they need. if you delete one file that another file imports from, the whole thing crashes.
+### 3. My Approach To Implementing The New Business Rule
 
-### What I Still Don't Understand
+if i had to implement the CSV export feature today here is exactly how i would approach it:
 
-- how does `task_list_merge.py` actually know which version of a task is newer? like what happens if both were updated at the exact same time?
-- i still don't fully get how `unittest` finds the test files automatically — like what's it actually looking for?
-- when `storage.py` saves to `tasks.json` — what happens if the app crashes halfway through saving? does it lose everything?
-- i get that imports connect the files but i don't fully understand yet how python actually goes and finds those files — like what if the file is in a different folder?
-- i understand argparse reads commands but i don't fully get how it knows the difference between `-priority` and `-due` when you type them
+**step 1 — read before touching anything**
+open `models.py` and write down every single field a task has. those become my CSV column headers:
 
-- 
+```
+id, title, description, priority,
+status, due_date, tags, created_at,
+updated_at, completed_at
+```
+
+**step 2 — create `task_export.py`**
+this is the new file that handles all CSV writing logic. it's the photocopy machine. build it once and it works every time someone runs the export command.
+
+**step 3 — modify `task_manager.py`**
+add a method called `export_to_csv()` that gets all tasks from storage and passes them to task_export.py. i would find where `get_all_tasks()` already lives and add my new method nearby so the code stays organised.
+
+**step 4 — modify `cli.py`**
+add the export command following the exact same pattern as existing commands like `stats` or `list`. the user should be able to type:
+
+```
+python cli.py export --filename "my_tasks.csv"
+```
+
+**step 5 — create `test_task_export.py`**
+write tests that follow the same pattern as `test_task_manager.py`. test that the file gets created, that the columns are correct, and that the data matches what's in storage.
+
+---
+
+### 4. Strategies I've Developed For Approaching Unfamiliar Code
+
+these are things i will actually do next time i open a codebase i've never seen before:
+
+**look at file names first before reading any code**
+file names tell you a lot. storage.py obviously stores things. task_parser.py obviously parses tasks. don't dive into code immediately — read the map first.
+
+**find the entry point first**
+always ask: where does this program START? for this project it's `cli.py` for users and `python -m unittest discover tests` for developers. once you know where it starts you can follow the flow.
+
+**read the imports at the top of each file**
+imports show you exactly which files talk to each other. if `task_manager.py` imports from `models.py` and `storage.py` — that tells you those three files are connected.
+
+**search for keywords before writing anything**
+before adding a new feature search the codebase for words like `export`, `csv`, `save`, `write`, `open(` — maybe someone already built what you need or something close to it.
+
+**plan on paper before touching code**
+i learned this from the CSV exercise. write down which files you'll modify and which new files you'll create BEFORE writing a single line of code. it saves a lot of confusion.
+
+**be honest about what you don't understand**
+i started adding "what i still don't understand" to every findings document. this is actually really useful because it shows you exactly what to google or ask about next. knowing what you don't know is a skill on its own.
+
+---
+
+### What I Still Don't Understand Overall
+
+- i understand the flow of the whole system but i still haven't seen what actual CSV writing code looks like inside task_export.py — i know the plan but not the syntax yet
+- i know how to READ imports but i don't fully understand yet how python actually FINDS the file when you import it — like what if the file is in a different folder
+- i understand the scoring rules but i don't know who in a real company decides what the numbers should be and how developers know what rules to code
+- i still want to understand what happens when two tasks have the exact same score — which one comes first and why
