@@ -417,6 +417,159 @@ the other thing that confused me was what happens when no symbols are typed. i t
 - i get that the first priority wins when two are typed but i don't understand HOW the code knows to only take the first one — what does `[0]` actually do technically?
 - i understand the algorithm extracts the date word like "tomorrow" but i don't fully understand how it converts that word into an actual calendar date — like what is `timedelta(days=1)` doing exactly?
 - what happens if someone types a symbol in an unexpected way like `!!high` or `@@shopping` — does it still work or does it break?
+Prompt 1
+I'm trying to understand how task creation 
+works in our Python codebase.
+
+This feature seems to handle creating tasks 
+in different files and formats — taking what 
+the user types and turning it into a saved task.
+
+Here are the key files involved:
+1. cli.py — the front door, where user 
+   types the command
+2. task_manager.py — the brain, coordinates 
+   everything
+3. models.py — defines what a Task looks like
+4. storage.py — handles saving and loading tasks
+
+Here's the key code from task_manager.py:
+
+def create_task(self, title, description="", 
+               priority_value=2,
+               due_date_str=None, tags=None):
+    priority = TaskPriority(priority_value)
+    due_date = None
+    if due_date_str:
+        try:
+            due_date = datetime.strptime(
+                due_date_str, "%Y-%m-%d")
+        except ValueError:
+            print("Invalid date format.")
+            return None
+    task = Task(title, description, 
+                priority, due_date, tags)
+    task_id = self.storage.add_task(task)
+    return task_id
+
+I'm particularly confused about how 
+storage.py gets its information — since 
+cli.py is the one where the user creates 
+the task, how does the data travel all 
+the way to storage.py?
+
+Could you:
+1. Explain what this code does simply
+2. Walk me through execution when 
+   user types:
+   python cli.py create "Buy milk" 
+   --priority 3 --due "2026-06-01"
+3. Clarify how these files interact
+4. Identify any external dependencies
+5. Explain any complex code blocks
+6. Provide a mental model I can use
+
+Now The AI Response To Prompt 1
+1. What This Code Does Simply
+This code is like a form processor:
+
+takes what the user typed
+validates it (checks date format)
+builds a proper Task object
+hands it to storage to save
+
+
+2. Answering Your Specific Confusion
+
+"how does storage.py get its info
+since cli.py creates everything?"
+
+Here's exactly how the data travels:
+STEP 1 — User types in terminal:
+python cli.py create "Buy milk" 
+--priority 3 --due "2026-06-01"
+
+STEP 2 — cli.py receives it:
+title    = "Buy milk"
+priority = 3
+due      = "2026-06-01"
+
+cli.py calls:
+task_manager.create_task(
+    "Buy milk", "", 3, "2026-06-01"
+)
+→ passes the values TO task_manager
+
+STEP 3 — task_manager.py processes it:
+converts "3" → TaskPriority.HIGH
+converts "2026-06-01" → datetime object
+checks date format → valid ✅
+builds Task object:
+  title    = "Buy milk"
+  priority = HIGH
+  due_date = 2026-06-01
+  status   = TODO (default)
+
+task_manager calls:
+self.storage.add_task(task)
+→ passes the Task object TO storage
+
+STEP 4 — storage.py receives Task object:
+adds it to self.tasks dictionary
+calls self.save()
+converts Task → JSON
+writes to tasks.json file
+permanently saved ✅
+
+STEP 5 — confirmation travels back up:
+storage returns task_id to task_manager
+task_manager returns task_id to cli.py
+cli.py prints:
+"Created task with ID: abc123"
+So storage.py doesn't go GET the info — the info gets passed DOWN to it like a relay race:
+cli.py 
+  → passes to task_manager.py
+        → passes to storage.py
+              → saves to tasks.json
+
+3. How The Files Interact
+cli.py
+  imports TaskManager from task_manager.py
+  calls task_manager.create_task()
+
+task_manager.py
+  imports Task, TaskPriority from models.py
+  imports TaskStorage from storage.py
+  builds Task using models.py blueprint
+  saves using storage.py
+
+storage.py
+  imports Task from models.py
+  writes to tasks.json
+
+models.py
+  imported by everyone
+  doesn't import from any project file
+  it's the foundation everything builds on
+
+4. Mental Model
+Think of it like a relay race:
+cli.py          = starter, fires the gun,
+                  passes the baton
+
+task_manager.py = middle runner, 
+                  processes and passes on
+
+storage.py      = final runner, 
+                  crosses the finish line
+                  (saves to disk)
+
+models.py       = the rulebook everyone 
+                  reads before running
+
+
+
+
 
 # **Exercise: Error Diagnosis Challenge**
 
